@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { fileToBase64 } from './utils/fileUtils';
 import { editImageWithGemini } from './services/geminiService';
@@ -220,7 +219,7 @@ export default function App() {
 
         <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Controls Column */}
-          <div className="lg:col-span-1 flex flex-col gap-8 p-6 bg-slate-800/50 rounded-2xl border border-slate-700 h-fit">
+          <div className="lg:col-span-1 flex flex-col gap-8 p-6 bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700 h-fit">
             
             <div>
                 <h3 className="text-lg font-semibold text-slate-300 mb-3">1. Upload Photo</h3>
@@ -264,7 +263,7 @@ export default function App() {
                       disabled={!originalImage || isLoading}
                       className={`
                         w-10 h-10 rounded-full border-2 border-white/10 focus:outline-none transition-all duration-200 ease-in-out flex items-center justify-center
-                        ${selectedColor === name ? 'ring-2 ring-offset-2 ring-offset-slate-800/50 ring-indigo-500 scale-110' : 'hover:scale-110'}
+                        ${selectedColor === name ? 'scale-110 ring-2 ring-offset-2 ring-offset-slate-800/50 ring-indigo-400 shadow-lg shadow-indigo-500/40' : 'hover:scale-110'}
                         ${(!originalImage || isLoading) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                       `}
                       style={{ backgroundColor: color }}
@@ -280,7 +279,7 @@ export default function App() {
             <button
               onClick={handleSubmit}
               disabled={!originalImage || !selectedColor || isLoading}
-              className="w-full flex items-center justify-center p-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isLoading && !editedImage ? (
                 <>
@@ -319,11 +318,16 @@ export default function App() {
                     </div>
                 </div>
                 <div className={`flex flex-col gap-4 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                    {REFINEMENTS.map(({ id, label, prompt }) => (
+                    {REFINEMENTS.map(({ id, label, prompt }) => {
+                        const value = refinementValues[id] || 0;
+                        const sliderStyle = {
+                            background: `linear-gradient(to right, #6366f1 ${value}%, #475569 ${value}%)` // indigo-500, slate-600
+                        };
+                        return (
                         <div key={id}>
                             <label htmlFor={id} className="flex justify-between items-center text-sm font-medium text-slate-300 mb-1">
                                 <span>{label}</span>
-                                <span className="text-slate-400 font-mono text-xs bg-slate-700/50 px-1.5 py-0.5 rounded">{refinementValues[id] || 0}%</span>
+                                <span className="text-slate-400 font-mono text-xs bg-slate-700/50 px-1.5 py-0.5 rounded">{value}%</span>
                             </label>
                             <input
                                 id={id}
@@ -331,21 +335,22 @@ export default function App() {
                                 min="0"
                                 max="100"
                                 step="1"
-                                value={refinementValues[id] || 0}
+                                value={value}
                                 onChange={(e) => handleRefinementChange(id, parseInt(e.target.value, 10), prompt)}
                                 disabled={isLoading}
-                                className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                className="w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer custom-slider focus:outline-none"
+                                style={sliderStyle}
                                 aria-label={`${label} intensity`}
                             />
                         </div>
-                    ))}
+                    )})}
                 </div>
               </div>
             )}
           </div>
 
           {/* Result Column */}
-          <div className="lg:col-span-2 flex items-center justify-center p-6 bg-slate-800/50 rounded-2xl border border-slate-700 min-h-[400px] lg:min-h-full">
+          <div className="lg:col-span-2 flex items-center justify-center p-6 bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700 min-h-[400px] lg:min-h-full">
             <div className="w-full h-full relative">
                 {isLoading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800/80 backdrop-blur-sm rounded-xl z-10">
