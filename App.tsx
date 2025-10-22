@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { fileToBase64 } from './utils/fileUtils';
 import { editImageWithGemini } from './services/geminiService';
-import { UploadIcon, WandIcon, DownloadIcon, SpinnerIcon, CheckIcon } from './components/icons';
+import { UploadIcon, WandIcon, DownloadIcon, SpinnerIcon, CheckIcon, UndoIcon, RedoIcon } from './components/icons';
 import ImageCompareSlider from './components/ImageCompareSlider';
 
 const HAIR_COLORS = [
@@ -74,7 +75,8 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ title, imageUrl }) => (
 
 export default function App() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [editedImage, setEditedImage] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -83,6 +85,8 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<number | null>(null);
+
+  const editedImage = history[historyIndex] ?? null;
 
   useEffect(() => {
     // Cleanup timeout on component unmount
@@ -98,7 +102,8 @@ export default function App() {
     if (file) {
       try {
         setError(null);
-        setEditedImage(null);
+        setHistory([]);
+        setHistoryIndex(-1);
         setSelectedColor(null);
         setRefinementValues({});
         const base64 = await fileToBase64(file);
@@ -116,14 +121,16 @@ export default function App() {
     }
     setIsLoading(true);
     setError(null);
-    setEditedImage(null);
-    setRefinementValues({});
+    setRefinementValues({}); // Reset refinement sliders for a new base color
 
     const prompt = `Change the person's hair color to ${selectedColor}. Only change the hair color and nothing else in the image.`;
 
     try {
       const result = await editImageWithGemini(originalImage, prompt);
-      setEditedImage(result);
+      // Add to history, creating a new branch if we have undone steps
+      const newHistory = [...history.slice(0, historyIndex + 1), result];
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
@@ -132,7 +139,8 @@ export default function App() {
   };
 
   const handleRefinement = useCallback(async (refinementPrompt: string) => {
-    if (!editedImage || !selectedColor) {
+    const currentImage = history[historyIndex];
+    if (!currentImage || !selectedColor) {
       setError("Please generate a base image before refining it.");
       return;
     }
@@ -142,15 +150,16 @@ export default function App() {
     const prompt = `${refinementPrompt} for the person's ${selectedColor} hair. Only modify the hair.`;
 
     try {
-      // Use the *edited* image as the source for refinement
-      const result = await editImageWithGemini(editedImage, prompt);
-      setEditedImage(result);
+      const result = await editImageWithGemini(currentImage, prompt);
+      const newHistory = [...history.slice(0, historyIndex + 1), result];
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setIsLoading(false);
     }
-  }, [editedImage, selectedColor]);
+  }, [history, historyIndex, selectedColor]);
 
   const handleRefinementChange = useCallback((refinementId: string, value: number, promptFn: (val: number) => string) => {
     setRefinementValues(prev => ({ ...prev, [refinementId]: value }));
@@ -160,8 +169,10 @@ export default function App() {
     }
 
     debounceTimer.current = window.setTimeout(() => {
-        const prompt = promptFn(value);
-        handleRefinement(prompt);
+        if (value > 0) { // Only apply if slider is not at 0
+            const prompt = promptFn(value);
+            handleRefinement(prompt);
+        }
     }, 500);
   }, [handleRefinement]);
   
@@ -173,6 +184,20 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleUndo = () => {
+      if (historyIndex > 0) {
+          setHistoryIndex(historyIndex - 1);
+          setRefinementValues({}); // Reset sliders on undo for simplicity
+      }
+  };
+
+  const handleRedo = () => {
+      if (historyIndex < history.length - 1) {
+          setHistoryIndex(historyIndex + 1);
+          setRefinementValues({}); // Reset sliders on redo for simplicity
+      }
   };
 
   return (
@@ -272,7 +297,27 @@ export default function App() {
 
             {editedImage && (
               <div className="flex flex-col pt-6 border-t border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-300 mb-3">3. Refine The Look</h3>
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-lg font-semibold text-slate-300">3. Refine The Look</h3>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={handleUndo} 
+                            disabled={historyIndex <= 0 || isLoading}
+                            className="p-2 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Undo change"
+                        >
+                            <UndoIcon className="w-5 h-5"/>
+                        </button>
+                        <button 
+                            onClick={handleRedo} 
+                            disabled={historyIndex >= history.length - 1 || isLoading}
+                            className="p-2 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Redo change"
+                        >
+                            <RedoIcon className="w-5 h-5"/>
+                        </button>
+                    </div>
+                </div>
                 <div className={`flex flex-col gap-4 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
                     {REFINEMENTS.map(({ id, label, prompt }) => (
                         <div key={id}>
