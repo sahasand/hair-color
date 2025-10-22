@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { fileToBase64 } from './utils/fileUtils';
 import { editImageWithGemini } from './services/geminiService';
 import { UploadIcon, WandIcon, DownloadIcon, SpinnerIcon, CheckIcon } from './components/icons';
+import ImageCompareSlider from './components/ImageCompareSlider';
 
 const HAIR_COLORS = [
     // Natural Blondes
@@ -58,20 +59,11 @@ const ImagePlaceholder: React.FC<ImagePlaceholderProps> = ({ text }) => (
 type ImagePreviewProps = {
   title: string;
   imageUrl: string;
-  onDownload?: () => void;
 };
-const ImagePreview: React.FC<ImagePreviewProps> = ({ title, imageUrl, onDownload }) => (
+const ImagePreview: React.FC<ImagePreviewProps> = ({ title, imageUrl }) => (
   <div className="w-full h-full flex flex-col">
     <div className="flex justify-between items-center mb-2">
         <h3 className="text-lg font-semibold text-slate-300">{title}</h3>
-        {onDownload && (
-            <button 
-                onClick={onDownload} 
-                className="flex items-center px-3 py-1.5 bg-sky-600 text-white rounded-md hover:bg-sky-700 transition-colors duration-200 text-sm">
-                <DownloadIcon className="w-4 h-4 mr-2"/>
-                Download
-            </button>
-        )}
     </div>
     <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-slate-800 shadow-lg">
       <img src={imageUrl} alt={title} className="object-contain w-full h-full" />
@@ -165,7 +157,7 @@ export default function App() {
             AI Hair Color Changer
           </h1>
           <p className="mt-4 text-lg text-slate-400">
-            Upload a photo, pick a color, and refine your new look with AI.
+            Try on a new hair color in seconds. Upload a photo to begin.
           </p>
         </header>
 
@@ -175,29 +167,30 @@ export default function App() {
             </div>
         )}
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Controls Column */}
-          <div className="flex flex-col gap-8 p-6 bg-slate-800/50 rounded-2xl border border-slate-700">
-            <div 
-              className="w-full aspect-square cursor-pointer" 
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageUpload}
-                accept="image/png, image/jpeg, image/webp"
-                className="hidden"
-              />
-              {originalImage ? (
-                <ImagePreview title="Original Image" imageUrl={originalImage} />
-              ) : (
-                <ImagePlaceholder text="Click to upload an image" />
-              )}
+          <div className="lg:col-span-1 flex flex-col gap-8 p-6 bg-slate-800/50 rounded-2xl border border-slate-700 h-fit">
+            
+            <div>
+                <h3 className="text-lg font-semibold text-slate-300 mb-3">1. Upload Photo</h3>
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 transition-colors"
+                >
+                    <UploadIcon className="w-5 h-5" />
+                    <span>{originalImage ? 'Change Photo' : 'Select a Photo'}</span>
+                </button>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/png, image/jpeg, image/webp"
+                    className="hidden"
+                />
             </div>
             
-            <div className="flex flex-col gap-4">
-              <label className="font-semibold text-slate-300">Choose a Color</label>
+            <div className={`flex flex-col gap-4 transition-opacity duration-300 ${!originalImage ? 'opacity-50 pointer-events-none' : ''}`}>
+              <h3 className="text-lg font-semibold text-slate-300">2. Choose a Color</h3>
               <div className="flex flex-wrap gap-4 items-center justify-center sm:justify-start">
                 {HAIR_COLORS.map(({ name, color }) => (
                   <div
@@ -206,14 +199,12 @@ export default function App() {
                     onMouseEnter={() => setHoveredColor(name)}
                     onMouseLeave={() => setHoveredColor(null)}
                   >
-                    {/* Custom Tooltip */}
                     <div className={`
                       absolute bottom-full mb-3 px-3 py-1 text-sm font-semibold text-white bg-slate-700 rounded-md shadow-lg
                       transition-all duration-200 ease-in-out z-10
                       ${hoveredColor === name ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none'}
                     `}>
                       {name}
-                      {/* Tooltip Arrow */}
                       <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-slate-700"></div>
                     </div>
 
@@ -238,7 +229,7 @@ export default function App() {
             <button
               onClick={handleSubmit}
               disabled={!originalImage || !selectedColor || isLoading}
-              className="w-full flex items-center justify-center p-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200 mt-auto"
+              className="w-full flex items-center justify-center p-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isLoading && !editedImage ? (
                 <>
@@ -255,7 +246,7 @@ export default function App() {
 
             {editedImage && !isLoading && (
               <div className="flex flex-col pt-6 border-t border-slate-700">
-                <label className="mb-3 font-semibold text-slate-300">Refine The Look</label>
+                <h3 className="text-lg font-semibold text-slate-300 mb-3">3. Refine The Look</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {REFINEMENT_PROMPTS.map((prompt) => (
                     <button
@@ -273,7 +264,7 @@ export default function App() {
           </div>
 
           {/* Result Column */}
-          <div className="flex items-center justify-center p-6 bg-slate-800/50 rounded-2xl border border-slate-700 min-h-[300px] lg:min-h-full">
+          <div className="lg:col-span-2 flex items-center justify-center p-6 bg-slate-800/50 rounded-2xl border border-slate-700 min-h-[400px] lg:min-h-full">
             <div className="w-full h-full relative">
                 {isLoading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800/80 backdrop-blur-sm rounded-xl z-10">
@@ -281,12 +272,17 @@ export default function App() {
                         <p className="mt-4 text-lg">Gemini is working its magic...</p>
                     </div>
                 )}
-                {editedImage ? (
-                    <ImagePreview title="Edited Image" imageUrl={editedImage} onDownload={handleDownload}/>
+                
+                {!originalImage ? (
+                    <ImagePlaceholder text="Upload an image to get started" />
+                ) : !editedImage ? (
+                    <ImagePreview title="Original Image" imageUrl={originalImage} />
                 ) : (
-                    <div className="flex items-center justify-center w-full h-full text-slate-400">
-                        Your new hair color will appear here.
-                    </div>
+                    <ImageCompareSlider
+                        originalImageUrl={originalImage}
+                        editedImageUrl={editedImage}
+                        onDownload={handleDownload}
+                    />
                 )}
             </div>
           </div>
