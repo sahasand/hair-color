@@ -46,6 +46,14 @@ const REFINEMENTS = [
     { id: 'naturalness', label: 'Natural Look', prompt: (value: number) => `Make the hair look ${value}% more natural` },
 ];
 
+const LOADING_MESSAGES = [
+    "Blending the perfect shade...",
+    "Analyzing every strand...",
+    "Adding a touch of magic...",
+    "Rinsing and repeating...",
+    "Finalizing your new look...",
+];
+
 type ImagePlaceholderProps = {
   text: string;
 };
@@ -81,11 +89,28 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [refinementValues, setRefinementValues] = useState<Record<string, number>>({});
+  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<number | null>(null);
 
   const editedImage = history[historyIndex] ?? null;
+
+  useEffect(() => {
+    let messageInterval: number;
+    if (isLoading) {
+      let i = 0;
+      messageInterval = window.setInterval(() => {
+        i = (i + 1) % LOADING_MESSAGES.length;
+        setLoadingMessage(LOADING_MESSAGES[i]);
+      }, 2000);
+    }
+    return () => {
+      if (messageInterval) {
+        clearInterval(messageInterval);
+      }
+    };
+  }, [isLoading]);
 
   useEffect(() => {
     // Cleanup timeout on component unmount
@@ -239,7 +264,7 @@ export default function App() {
                 />
             </div>
             
-            <div className={`flex flex-col gap-4 transition-opacity duration-300 ${!originalImage ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className={`flex flex-col gap-4 transition-all duration-500 ease-in-out ${!originalImage ? 'opacity-0 -translate-y-4 max-h-0 pointer-events-none' : 'opacity-100 translate-y-0 max-h-[1000px]'}`}>
               <h3 className="text-lg font-semibold text-slate-300">2. Choose a Color</h3>
               <div className="flex flex-wrap gap-4 items-center justify-center sm:justify-start">
                 {HAIR_COLORS.map(({ name, color }) => (
@@ -274,28 +299,29 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            </div>
             
-            <button
-              onClick={handleSubmit}
-              disabled={!originalImage || !selectedColor || isLoading}
-              className="w-full flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              {isLoading && !editedImage ? (
-                <>
-                  <SpinnerIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <WandIcon className="w-5 h-5 mr-2" />
-                  Change Hair Color
-                </>
-              )}
-            </button>
+                <button
+                onClick={handleSubmit}
+                disabled={!originalImage || !selectedColor || isLoading}
+                className="w-full mt-4 flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                {isLoading && !editedImage ? (
+                    <>
+                    <SpinnerIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                    Generating...
+                    </>
+                ) : (
+                    <>
+                    <WandIcon className="w-5 h-5 mr-2" />
+                    Change Hair Color
+                    </>
+                )}
+                </button>
+            </div>
+
 
             {editedImage && (
-              <div className="flex flex-col pt-6 border-t border-slate-700">
+              <div className="flex flex-col pt-6 border-t border-slate-700 animate-fade-in">
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="text-lg font-semibold text-slate-300">3. Refine The Look</h3>
                     <div className="flex items-center gap-2">
@@ -321,11 +347,11 @@ export default function App() {
                     {REFINEMENTS.map(({ id, label, prompt }) => {
                         const value = refinementValues[id] || 0;
                         const sliderStyle = {
-                            background: `linear-gradient(to right, #6366f1 ${value}%, #475569 ${value}%)` // indigo-500, slate-600
+                            background: `linear-gradient(to right, #818cf8 ${value}%, #334155 ${value}%)` // indigo-400, slate-700
                         };
                         return (
                         <div key={id}>
-                            <label htmlFor={id} className="flex justify-between items-center text-sm font-medium text-slate-300 mb-1">
+                            <label htmlFor={id} className="flex justify-between items-center text-sm font-medium text-slate-300 mb-3">
                                 <span>{label}</span>
                                 <span className="text-slate-400 font-mono text-xs bg-slate-700/50 px-1.5 py-0.5 rounded">{value}%</span>
                             </label>
@@ -353,10 +379,13 @@ export default function App() {
           <div className="lg:col-span-2 flex items-center justify-center p-6 bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700 min-h-[400px] lg:min-h-full">
             <div className="w-full h-full relative">
                 {isLoading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800/80 backdrop-blur-sm rounded-xl z-10">
-                        <SpinnerIcon className="w-12 h-12 animate-spin text-sky-400" />
-                        <p className="mt-4 text-lg">Gemini is working its magic...</p>
-                        <p className="text-sm text-slate-400">Refining the image...</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 z-10 rounded-xl overflow-hidden">
+                        {originalImage && <img src={originalImage} alt="Loading background" className="absolute inset-0 w-full h-full object-cover blur-md scale-105" />}
+                        <div className="absolute inset-0 bg-slate-900/70"></div>
+                        <div className="relative text-center">
+                            <SpinnerIcon className="w-12 h-12 animate-spin text-sky-400 mx-auto" />
+                            <p className="mt-4 text-lg font-semibold transition-opacity duration-300">{loadingMessage}</p>
+                        </div>
                     </div>
                 )}
                 

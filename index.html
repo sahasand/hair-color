@@ -26,34 +26,43 @@
       .custom-slider::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         background-color: #f8fafc; /* slate-50 */
-        border: 3px solid #6366f1; /* indigo-500 */
         border-radius: 50%;
         cursor: pointer;
-        margin-top: -6px; /* center thumb on track */
+        margin-top: -4px; /* centers a 16px thumb on an 8px track */
         transition: all 0.15s ease-in-out;
+        border: none;
+        box-shadow: 0 0 0 4px #818cf8; /* default ring/glow (indigo-400) */
       }
       .custom-slider:focus::-webkit-slider-thumb,
       .custom-slider:hover::-webkit-slider-thumb {
-        transform: scale(1.25);
-        box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4);
+        transform: scale(1.2);
+        box-shadow: 0 0 0 8px #818cf8; /* expanded ring/glow */
       }
       
       .custom-slider::-moz-range-thumb {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         background-color: #f8fafc; /* slate-50 */
-        border: 3px solid #6366f1; /* indigo-500 */
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.15s ease-in-out;
+        border: none;
+        box-shadow: 0 0 0 4px #818cf8; /* default ring/glow (indigo-400) */
       }
        .custom-slider:focus::-moz-range-thumb,
        .custom-slider:hover::-moz-range-thumb {
-        transform: scale(1.25);
-        box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4);
+        transform: scale(1.2);
+        box-shadow: 0 0 0 8px #818cf8; /* expanded ring/glow */
+      }
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-in-out forwards;
       }
     </style>
   <script type="importmap">
