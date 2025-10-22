@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { fileToBase64 } from './utils/fileUtils';
 import { editImageWithGemini } from './services/geminiService';
 import { UploadIcon, WandIcon, DownloadIcon, SpinnerIcon, CheckIcon } from './components/icons';
@@ -37,13 +37,13 @@ const HAIR_COLORS = [
     { name: 'Fiery Orange', color: '#FF7518' },
 ];
 
-const REFINEMENT_PROMPTS = [
-    'Make it darker',
-    'Make it lighter',
-    'Add highlights',
-    'A softer shade',
-    'More vibrant',
-    'A more natural look'
+const REFINEMENTS = [
+    { id: 'darkness', label: 'Darken', prompt: (value: number) => `Make the hair ${value}% darker` },
+    { id: 'lightness', label: 'Lighten', prompt: (value: number) => `Make the hair ${value}% lighter` },
+    { id: 'highlights', label: 'Highlights', prompt: (value: number) => `Add highlights with ${value}% intensity` },
+    { id: 'vibrancy', label: 'Vibrancy', prompt: (value: number) => `Make the hair color ${value}% more vibrant` },
+    { id: 'softness', label: 'Soften Shade', prompt: (value: number) => `Make the hair shade ${value}% softer` },
+    { id: 'naturalness', label: 'Natural Look', prompt: (value: number) => `Make the hair look ${value}% more natural` },
 ];
 
 type ImagePlaceholderProps = {
@@ -79,8 +79,19 @@ export default function App() {
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [refinementValues, setRefinementValues] = useState<Record<string, number>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Cleanup timeout on component unmount
+    return () => {
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+    };
+  }, []);
 
   const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -89,6 +100,7 @@ export default function App() {
         setError(null);
         setEditedImage(null);
         setSelectedColor(null);
+        setRefinementValues({});
         const base64 = await fileToBase64(file);
         setOriginalImage(base64);
       } catch (err) {
@@ -105,6 +117,7 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     setEditedImage(null);
+    setRefinementValues({});
 
     const prompt = `Change the person's hair color to ${selectedColor}. Only change the hair color and nothing else in the image.`;
 
@@ -118,7 +131,7 @@ export default function App() {
     }
   };
 
-  const handleRefinement = async (refinementPrompt: string) => {
+  const handleRefinement = useCallback(async (refinementPrompt: string) => {
     if (!editedImage || !selectedColor) {
       setError("Please generate a base image before refining it.");
       return;
@@ -137,7 +150,20 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [editedImage, selectedColor]);
+
+  const handleRefinementChange = useCallback((refinementId: string, value: number, promptFn: (val: number) => string) => {
+    setRefinementValues(prev => ({ ...prev, [refinementId]: value }));
+
+    if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = window.setTimeout(() => {
+        const prompt = promptFn(value);
+        handleRefinement(prompt);
+    }, 500);
+  }, [handleRefinement]);
   
   const handleDownload = () => {
     if(!editedImage) return;
@@ -244,20 +270,30 @@ export default function App() {
               )}
             </button>
 
-            {editedImage && !isLoading && (
+            {editedImage && (
               <div className="flex flex-col pt-6 border-t border-slate-700">
                 <h3 className="text-lg font-semibold text-slate-300 mb-3">3. Refine The Look</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {REFINEMENT_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      onClick={() => handleRefinement(prompt)}
-                      disabled={isLoading}
-                      className="px-3 py-2 text-sm text-center bg-slate-700 text-slate-200 rounded-md hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+                <div className={`flex flex-col gap-4 ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {REFINEMENTS.map(({ id, label, prompt }) => (
+                        <div key={id}>
+                            <label htmlFor={id} className="flex justify-between items-center text-sm font-medium text-slate-300 mb-1">
+                                <span>{label}</span>
+                                <span className="text-slate-400 font-mono text-xs bg-slate-700/50 px-1.5 py-0.5 rounded">{refinementValues[id] || 0}%</span>
+                            </label>
+                            <input
+                                id={id}
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value={refinementValues[id] || 0}
+                                onChange={(e) => handleRefinementChange(id, parseInt(e.target.value, 10), prompt)}
+                                disabled={isLoading}
+                                className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                aria-label={`${label} intensity`}
+                            />
+                        </div>
+                    ))}
                 </div>
               </div>
             )}
@@ -270,6 +306,7 @@ export default function App() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800/80 backdrop-blur-sm rounded-xl z-10">
                         <SpinnerIcon className="w-12 h-12 animate-spin text-sky-400" />
                         <p className="mt-4 text-lg">Gemini is working its magic...</p>
+                        <p className="text-sm text-slate-400">Refining the image...</p>
                     </div>
                 )}
                 
