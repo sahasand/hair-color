@@ -46,6 +46,13 @@ const REFINEMENTS = [
     { id: 'naturalness', label: 'Natural Look', prompt: (value: number) => `Make the hair look ${value}% more natural` },
 ];
 
+const FEATURED_LOOKS = [
+  { name: 'Sunset Ombre', colorName: 'Fiery Orange', refinements: { highlights: 50, vibrancy: 30, softness: 10, darkness: 0, lightness: 0, naturalness: 0 } },
+  { name: 'Cool Platinum', colorName: 'Platinum Blonde', refinements: { lightness: 20, softness: 30, naturalness: 20, darkness: 0, highlights: 0, vibrancy: 0 } },
+  { name: 'Vibrant Red', colorName: 'Auburn', refinements: { vibrancy: 40, darkness: 10, highlights: 15, lightness: 0, softness: 0, naturalness: 0 } },
+  { name: 'Mystic Lavender', colorName: 'Lavender', refinements: { vibrancy: 25, highlights: 35, softness: 20, darkness: 0, lightness: 0, naturalness: 0 } },
+];
+
 const LOADING_MESSAGES = [
     "Blending the perfect shade...",
     "Analyzing every strand...",
@@ -184,6 +191,45 @@ export default function App() {
       setIsLoading(false);
     }
   }, [history, historyIndex, selectedColor]);
+  
+  const handleLookSelect = async (look: typeof FEATURED_LOOKS[0]) => {
+    if (!originalImage) {
+      setError("Please upload an image first.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    setSelectedColor(look.colorName);
+    setRefinementValues(look.refinements);
+
+    let prompt = `Change the person's hair color to ${look.colorName}.`;
+    const refinementPrompts = REFINEMENTS
+      .map(ref => {
+        const value = look.refinements[ref.id as keyof typeof look.refinements];
+        if (value && value > 0) {
+          return ref.prompt(value);
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join('. ');
+
+    if (refinementPrompts) {
+      prompt += ` Then, apply the following refinements: ${refinementPrompts}.`;
+    }
+    prompt += " Only change the hair color and nothing else in the image.";
+
+    try {
+      const result = await editImageWithGemini(originalImage, prompt);
+      const newHistory = [...history.slice(0, historyIndex + 1), result];
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRefinementChange = useCallback((refinementId: string, value: number, promptFn: (val: number) => string) => {
     setRefinementValues(prev => ({ ...prev, [refinementId]: value }));
@@ -299,31 +345,45 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              <h3 className="text-lg font-semibold text-slate-300 mt-6 mb-3">3. Or, Try a Featured Look</h3>
+              <div className="grid grid-cols-2 gap-3">
+                  {FEATURED_LOOKS.map((look) => (
+                      <button
+                          key={look.name}
+                          onClick={() => handleLookSelect(look)}
+                          disabled={!originalImage || isLoading}
+                          className="text-left p-3 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700"
+                      >
+                          <span className="font-semibold text-slate-200">{look.name}</span>
+                      </button>
+                  ))}
+              </div>
             
-                <button
-                onClick={handleSubmit}
-                disabled={!originalImage || !selectedColor || isLoading}
-                className="w-full mt-4 flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                {isLoading && !editedImage ? (
-                    <>
-                    <SpinnerIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />
-                    Generating...
-                    </>
-                ) : (
-                    <>
-                    <WandIcon className="w-5 h-5 mr-2" />
-                    Change Hair Color
-                    </>
-                )}
-                </button>
+              <button
+              onClick={handleSubmit}
+              disabled={!originalImage || !selectedColor || isLoading}
+              className="w-full mt-6 flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+              {isLoading && !editedImage ? (
+                  <>
+                  <SpinnerIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                  Generating...
+                  </>
+              ) : (
+                  <>
+                  <WandIcon className="w-5 h-5 mr-2" />
+                  Apply Selected Color
+                  </>
+              )}
+              </button>
             </div>
 
 
             {editedImage && (
               <div className="flex flex-col pt-6 border-t border-slate-700 animate-fade-in">
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-semibold text-slate-300">3. Refine The Look</h3>
+                    <h3 className="text-lg font-semibold text-slate-300">4. Refine The Look</h3>
                     <div className="flex items-center gap-2">
                         <button 
                             onClick={handleUndo} 
