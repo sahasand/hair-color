@@ -1,0 +1,5 @@
+{
+  "name": "AI Hair Color Changer",
+  "description": "Upload a photo and use AI to try on different hair colors like blonde, brunette, red, and more.",
+  "requestFramePermissions": []
+}
